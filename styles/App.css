@@ -11,8 +11,9 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: linear-gradient(135deg, #FF0066 0%, #E6005C 15%, #CC0052 25%, #990099 35%, #6600CC 45%, #0033FF 55%, #0066FF 65%, #000066 75%, #000033 85%, #000000 100%);
-  background-attachment: fixed;
+  background:
+    url('SYNAPSE.png') no-repeat center center fixed;
+  background-size: cover;
   min-height: 100vh;
   color: white;
   position: relative;
