@@ -15,6 +15,7 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.static('client/build'));
+app.use(express.static('.'));
 
 // Session configuration
 app.use(session({
@@ -73,21 +74,27 @@ app.get('/auth/google/callback',
               font-family: Arial, sans-serif; 
               text-align: center; 
               padding: 50px;
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              background: url('/background.png') center center / cover no-repeat fixed;
+              background-attachment: fixed;
+              min-height: 100vh;
+              margin: 0;
               color: white;
             }
             .container {
-              background: white;
-              color: #333;
+              background: rgba(30, 30, 30, 0.95);
+              border: 1px solid rgba(255, 255, 255, 0.1);
+              color: #ffffff;
               padding: 40px;
               border-radius: 16px;
               max-width: 500px;
               margin: 0 auto;
+              box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+              backdrop-filter: blur(10px);
             }
-            .success { color: #27ae60; font-size: 24px; margin-bottom: 20px; }
-            .user-info { margin: 20px 0; }
+            .success { color:rgb(225, 123, 210); font-size: 24px; margin-bottom: 20px; }
+            .user-info { margin: 20px 0; color: #b0b0b0; }
             .btn {
-              background: #4A90E2;
+              background:rgb(138, 36, 228);
               color: white;
               padding: 12px 24px;
               border: none;
@@ -95,6 +102,12 @@ app.get('/auth/google/callback',
               text-decoration: none;
               display: inline-block;
               margin-top: 20px;
+              transition: all 0.3s ease;
+            }
+            .btn:hover {
+              background:rgb(240, 82, 177);
+              transform: translateY(-2px);
+              box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
             }
           </style>
         </head>
@@ -145,52 +158,57 @@ app.get('*', (req, res) => {
             sans-serif;
           -webkit-font-smoothing: antialiased;
           -moz-osx-font-smoothing: grayscale;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          background: url('/background.png') center center / cover no-repeat fixed;
+          background-attachment: fixed;
           min-height: 100vh;
           display: flex;
           align-items: center;
           justify-content: center;
           padding: 20px;
+          margin: 0;
         }
         .login-container {
-          background: white;
+          background: rgba(30, 30, 30, 0.95);
+          border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 16px;
           padding: 48px;
-          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
           backdrop-filter: blur(10px);
           max-width: 500px;
           width: 100%;
           text-align: center;
         }
         .logo {
-          width: 80px;
-          height: 80px;
-          background: linear-gradient(135deg, #4A90E2, #357ABD);
-          border-radius: 20px;
-          margin: 0 auto 24px;
+          width: 200px;
+          height: 200px;
+          margin: 0 auto 32px;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 32px;
-          color: white;
-          font-weight: bold;
+          overflow: visible;
+        }
+        .logo img {
+          width: 150%;
+          height: 150%;
+          object-fit: contain;
+          border-radius: 30px;
         }
         .title {
           font-size: 32px;
           font-weight: 700;
-          color: #333;
+          color: #ffffff;
           margin-bottom: 12px;
         }
         .subtitle {
           font-size: 16px;
-          color: #666;
+          color: #b0b0b0;
           line-height: 1.5;
           margin-bottom: 40px;
         }
         .google-btn {
           width: 100%;
           padding: 16px;
-          background: #4285f4;
+          background:rgb(227, 110, 240);
           color: white;
           border: none;
           border-radius: 8px;
@@ -205,9 +223,9 @@ app.get('*', (req, res) => {
           text-decoration: none;
         }
         .google-btn:hover {
-          background: #357ae8;
+          background:rgb(195, 36, 244);
           transform: translateY(-2px);
-          box-shadow: 0 8px 20px rgba(66, 133, 244, 0.3);
+          box-shadow: 0 8px 20px rgba(66, 133, 244, 0.4);
         }
         .google-icon {
           width: 20px;
@@ -215,7 +233,7 @@ app.get('*', (req, res) => {
         }
         .privacy-note {
           font-size: 12px;
-          color: #999;
+          color: #888;
           margin-top: 24px;
           line-height: 1.4;
         }
@@ -223,7 +241,9 @@ app.get('*', (req, res) => {
     </head>
     <body>
       <div class="login-container">
-        <div class="logo">S</div>
+        <div class="logo">
+          <img src="/5.png" alt="Synapse Logo" />
+        </div>
         
         <h1 class="title">Synapse</h1>
         
