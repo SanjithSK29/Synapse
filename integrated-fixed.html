@@ -131,62 +131,34 @@
 
             // Send data to Gemini API
             // MODIFIED sendToGemini function for demo purposes
+            // FINAL, REAL sendToGemini function using the browser's fetch API
             const sendToGemini = async () => {
-                if (!apiKey) {
-                    alert('Please enter an API key to simulate the request.');
+                const latestCheckin = userData?.dailyCheckins?.[userData.dailyCheckins.length - 1];
+                
+                if (!geminiService) { // We are still using the variable named 'geminiService'
+                    alert('Please enter your Gemini API key first.');
+                    return;
+                }
+                if (!userData?.initialAssessment || !latestCheckin) {
+                    alert('Please complete the initial assessment and today\'s daily check-in.');
                     return;
                 }
 
                 setIsSendingToGemini(true);
-                setGeminiResponse(null); // Clear previous response
+                setGeminiResponse(null); 
 
-                // This is the fake data that mimics a real AI response
-                const mockApiResponse = {
-                  "timetable": [
-                    {
-                      "time": "9:00 AM - 9:30 AM",
-                      "activity": "Morning Review & Planning",
-                      "reason": "Based on your 'Standard Riser' profile, this eases you into the day."
-                    },
-                    {
-                      "time": "9:30 AM - 11:30 AM",
-                      "activity": "Deep Work on: Your Priority Task",
-                      "reason": "Scheduled during your peak 'Mid-Morning Warrior' energy window for maximum focus."
-                    },
-                    {
-                      "time": "11:30 AM - 11:45 AM",
-                      "activity": "Movement Break",
-                      "reason": "Your preference for movement breaks will help reset your focus before the next session."
-                    },
-                    {
-                      "time": "11:45 AM - 1:00 PM",
-                      "activity": "Handle Emails & Communications",
-                      "reason": "Lower energy task scheduled before lunch, matching your standard lunch time."
-                    },
-                    {
-                      "time": "1:00 PM - 2:00 PM",
-                      "activity": "Lunch Break",
-                      "reason": "Aligned with your 'Standard Luncher' habit to maintain energy levels."
-                    },
-                    {
-                      "time": "2:00 PM - 3:30 PM",
-                      "activity": "Collaborative Work or Meetings",
-                      "reason": "Post-lunch is good for social tasks as per your profile."
-                    },
-                    {
-                      "time": "3:30 PM - 4:00 PM",
-                      "activity": "Afternoon Recharge (Walk/Solitude)",
-                      "reason": "A final break to overcome the afternoon slump, as you prefer solitude to reset."
-                    }
-                  ]
-                };
-
-                // Simulate a 2-second network delay
-                setTimeout(() => {
-                    console.log('Simulating Gemini API Response:', mockApiResponse);
-                    setGeminiResponse(mockApiResponse);
+                try {
+                    // This calls the REAL Gemini API with your user data
+                    const response = await geminiService.getAnalysis(userData.initialAssessment, latestCheckin);
+                    setGeminiResponse(response);
+                    console.log('Real Gemini API Response:', response);
+                } catch (error) {
+                    console.error('Failed to get analysis from Gemini:', error);
+                    // This alert will now show the real error message from the API
+                    alert(`Failed to generate schedule: ${error.message}. Please check your key and API availability.`);
+                } finally {
                     setIsSendingToGemini(false);
-                }, 2000);
+                }
             };
 
             // Test Gemini API connection
@@ -1087,6 +1059,8 @@
         
 
         ReactDOM.render(<IntegratedApp />, document.getElementById('root'));
+
+        
         
     </script>
 </body>
