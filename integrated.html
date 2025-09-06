@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Synapse - Integrated App</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="geminiService.js"></script>
+    <link rel="stylesheet" href="styles/App.css">
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // LoginPage Component
+        const LoginPage = ({ onGoogleLogin }) => {
+            return (
+                <div className="login-container">
+                    <div className="logo">S</div>
+                    
+                    <h1 className="title">Synapse</h1>
+                    
+                    <p className="subtitle">
+                        AI-powered timetable generator that analyzes your energy levels and optimizes your schedule
+                    </p>
+
+                    <button 
+                        onClick={onGoogleLogin}
+                        className="google-btn"
+                    >
+                        <svg className="google-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                        </svg>
+                        Continue with Google
+                    </button>
+
+                    <p className="privacy-note">
+                        By signing in, you agree to our Terms of Service and Privacy Policy. 
+                        We only access your basic profile information to personalize your experience.
+                    </p>
+                </div>
+            );
+        };
+
+        // IntegratedApp Component
+        const IntegratedApp = () => {
+            const [isAuthenticated, setIsAuthenticated] = useState(false);
+            const [currentView, setCurrentView] = useState('login');
+            const [userData, setUserData] = useState(null);
+            const [geminiService, setGeminiService] = useState(null);
+            const [isSendingToGemini, setIsSendingToGemini] = useState(false);
+            const [geminiResponse, setGeminiResponse] = useState(null);
+            const [apiKey, setApiKey] = useState('');
+
+            // Check for existing authentication on mount
+            useEffect(() => {
+                const savedAuth = localStorage.getItem('synapse_auth');
+                const savedUserData = localStorage.getItem('synapse_user_data');
+                
+                if (savedAuth === 'true' && savedUserData) {
+                    setIsAuthenticated(true);
+                    setUserData(JSON.parse(savedUserData));
+                    setCurrentView('dashboard');
+                }
+            }, []);
+
+            // Initialize Gemini service when API key is provided
+            useEffect(() => {
+                if (apiKey) {
+                    setGeminiService(new GeminiService(apiKey));
+                }
+            }, [apiKey]);
+
+            const handleGoogleLogin = () => {
+                // Simulate Google OAuth flow with a proper redirect
+                const mockUser = {
+                    id: 'user123',
+                    name: 'John Doe',
+                    email: 'john@example.com',
+                    picture: 'https://via.placeholder.com/150'
+                };
+                
+                // Show loading state
+                alert('🔐 Redirecting to Google OAuth...\n\n(In demo mode, this simulates the OAuth flow)');
+                
+                // Simulate OAuth redirect delay
+                setTimeout(() => {
+                    setIsAuthenticated(true);
+                    setUserData(mockUser);
+                    setCurrentView('initial');
+                    
+                    localStorage.setItem('synapse_auth', 'true');
+                    localStorage.setItem('synapse_user_data', JSON.stringify(mockUser));
+                    
+                    alert('✅ Successfully logged in with Google!');
+                }, 1500);
+            };
+
+            const handleInitialComplete = (data) => {
+                const updatedUserData = {
+                    ...userData,
+                    initialAssessment: data,
+                    completedAt: new Date().toISOString()
+                };
+                
+                setUserData(updatedUserData);
+                setCurrentView('dashboard');
+                localStorage.setItem('synapse_user_data', JSON.stringify(updatedUserData));
+            };
+
+            const handleLogout = () => {
+                setIsAuthenticated(false);
+                setUserData(null);
+                setCurrentView('login');
+                setGeminiResponse(null);
+                
+                localStorage.removeItem('synapse_auth');
+                localStorage.removeItem('synapse_user_data');
+                localStorage.removeItem('synapse_assessment_data');
+            };
+
+            // Send data to Gemini API
+            const sendToGemini = async () => {
+                if (!geminiService || !userData?.initialAssessment) {
+                    alert('Please complete the initial assessment and enter your Gemini API key first');
+                    return;
+                }
+
+                setIsSendingToGemini(true);
+                try {
+                    const mcqData = formatAssessmentForGemini(userData.initialAssessment);
+                    const response = await geminiService.sendMCQData(mcqData.answers, mcqData.questions);
+                    setGeminiResponse(response);
+                    console.log('Gemini API Response:', response);
+                } catch (error) {
+                    console.error('Failed to send data to Gemini:', error);
+                    alert('Failed to send data to Gemini. Please check your API key and try again.');
+                } finally {
+                    setIsSendingToGemini(false);
+                }
+            };
+
+            // Test Gemini API connection
+            const testGeminiConnection = async () => {
+                if (!geminiService) {
+                    alert('Please enter your Gemini API key first');
+                    return;
+                }
+
+                try {
+                    const isConnected = await geminiService.testConnection();
+                    if (isConnected) {
+                        alert('✅ Gemini API connection successful!');
+                    } else {
+                        alert('❌ Gemini API connection failed. Please check your API key.');
+                    }
+                } catch (error) {
+                    console.error('Connection test failed:', error);
+                    alert('❌ Connection test failed. Please check your API key.');
+                }
+            };
+
+            // Format assessment data for Gemini
+            const formatAssessmentForGemini = (assessmentData) => {
+                const questions = [];
+                const answers = {};
+                
+                Object.entries(assessmentData).forEach(([key, value], index) => {
+                    questions.push({
+                        id: index + 1,
+                        question: `Assessment Question ${index + 1}: ${key}`,
+                        options: [
+                            { id: value, text: value }
+                        ]
+                    });
+                    answers[index + 1] = value;
+                });
+
+                return { questions, answers };
+            };
+
+            const renderCurrentView = () => {
+                if (!isAuthenticated) {
+                    return <LoginPage onGoogleLogin={handleGoogleLogin} />;
+                }
+
+                switch (currentView) {
+                    case 'initial':
+                        return <InitialAssessment onComplete={handleInitialComplete} />;
+                    case 'dashboard':
+                        return <Dashboard userData={userData} onRestart={() => setCurrentView('initial')} />;
+                    default:
+                        return <InitialAssessment onComplete={handleInitialComplete} />;
+                }
+            };
+
+            return (
+                <div className="app">
+                    {isAuthenticated && (
+                        <div className="header">
+                            <h1 className="logo">SYNAPSE</h1>
+                            <p className="tagline">Your mind, optimized</p>
+                            <div className="header-actions">
+                                <button onClick={handleLogout} className="logout-btn">
+                                    Logout
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {renderCurrentView()}
+
+                    {/* Gemini AI Integration */}
+                    {isAuthenticated && currentView === 'dashboard' && userData?.initialAssessment && (
+                        <div className="gemini-integration">
+                            <div className="gemini-section">
+                                <h3>🤖 AI Analysis with Gemini</h3>
+                                
+                                <div className="gemini-controls">
+                                    <input
+                                        type="password"
+                                        value={apiKey}
+                                        onChange={(e) => setApiKey(e.target.value)}
+                                        placeholder="Enter your Gemini API key"
+                                        className="api-key-input"
+                                    />
+                                    
+                                    <div className="gemini-buttons">
+                                        <button
+                                            onClick={testGeminiConnection}
+                                            disabled={!apiKey}
+                                            className="test-btn"
+                                        >
+                                            Test Connection
+                                        </button>
+                                        
+                                        <button
+                                            onClick={sendToGemini}
+                                            disabled={!geminiService || isSendingToGemini}
+                                            className="send-btn"
+                                        >
+                                            {isSendingToGemini ? 'Sending...' : 'Analyze with AI'}
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                {geminiResponse && (
+                                    <div className="gemini-response">
+                                        <h4>AI Analysis Results:</h4>
+                                        <pre>{JSON.stringify(geminiResponse, null, 2)}</pre>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // InitialAssessment Component (simplified for demo)
+        const InitialAssessment = ({ onComplete }) => {
+            const [currentSection, setCurrentSection] = useState(0);
+            const [formData, setFormData] = useState(() => {
+                const savedData = localStorage.getItem('synapse_assessment_data');
+                return savedData ? JSON.parse(savedData) : {};
+            });
+
+            useEffect(() => {
+                localStorage.setItem('synapse_assessment_data', JSON.stringify(formData));
+            }, [formData]);
+
+            const sections = [
+                {
+                    title: "Energy Patterns",
+                    questions: [
+                        {
+                            id: "alert_time",
+                            text: "When do you naturally feel most alert and productive?",
+                            type: "mcq",
+                            options: [
+                                { value: "early_bird", label: "Early Bird (6-10 AM)" },
+                                { value: "mid_morning", label: "Mid-Morning (10 AM-2 PM)" },
+                                { value: "afternoon", label: "Afternoon (2-6 PM)" },
+                                { value: "night_owl", label: "Night Owl (6 PM-12 AM)" }
+                            ]
+                        },
+                        {
+                            id: "work_style",
+                            text: "How do you prefer to tackle large projects?",
+                            type: "mcq",
+                            options: [
+                                { value: "breakdown", label: "Break into small tasks" },
+                                { value: "deep_work", label: "Deep work sessions" },
+                                { value: "flexible", label: "Mix of approaches" }
+                            ]
+                        }
+                    ]
+                }
+            ];
+
+            const handleAnswer = (questionId, answer) => {
+                setFormData(prev => ({ ...prev, [questionId]: answer }));
+            };
+
+            const handleNext = () => {
+                if (currentSection < sections.length - 1) {
+                    setCurrentSection(currentSection + 1);
+                } else {
+                    onComplete(formData);
+                }
+            };
+
+            const isCurrentSectionComplete = () => {
+                return sections[currentSection].questions.every(q => formData[q.id]);
+            };
+
+            const renderQuestion = (question) => (
+                <div key={question.id} className="question">
+                    <div className="question-text">{question.text}</div>
+                    <div className="options">
+                        {question.options.map((option) => (
+                            <div
+                                key={option.value}
+                                className={`option ${formData[question.id] === option.value ? 'selected' : ''}`}
+                                onClick={() => handleAnswer(question.id, option.value)}
+                            >
+                                <div className="option-label">{option.label}</div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+
+            return (
+                <div className="container">
+                    <div className="section">
+                        <h2 className="section-title">{sections[currentSection].title}</h2>
+                        {sections[currentSection].questions.map(renderQuestion)}
+                    </div>
+
+                    <div className="button-container">
+                        <button 
+                            className="button" 
+                            onClick={handleNext}
+                            disabled={!isCurrentSectionComplete()}
+                        >
+                            {currentSection === sections.length - 1 ? 'Complete Assessment' : 'Next Section'}
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        // Dashboard Component (simplified)
+        const Dashboard = ({ userData, onRestart }) => {
+            return (
+                <div className="container">
+                    <div className="section">
+                        <h2 className="section-title">Your SYNAPSE Dashboard</h2>
+                        <div style={{ 
+                            background: 'rgba(255, 255, 255, 0.1)', 
+                            borderRadius: '16px', 
+                            padding: '40px', 
+                            textAlign: 'center',
+                            border: '1px solid rgba(255, 255, 255, 0.2)'
+                        }}>
+                            <h3 style={{ marginBottom: '20px', color: '#4ecdc4' }}>Welcome to SYNAPSE!</h3>
+                            <p style={{ marginBottom: '30px', fontSize: '1.1rem', lineHeight: '1.5' }}>
+                                Your initial assessment is complete. Use the AI analysis below to get insights about your productivity patterns.
+                            </p>
+                        </div>
+
+                        <div className="button-container">
+                            <button className="button secondary" onClick={onRestart}>
+                                Retake Assessment
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<IntegratedApp />, document.getElementById('root'));
+    </script>
+</body>
+</html>
