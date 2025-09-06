@@ -74,16 +74,12 @@
             // Initialize Gemini service when API key is provided
             useEffect(() => {
                 if (apiKey) {
-                    try {
-                        setGeminiService(new GeminiService(apiKey));
-                    } catch (error) {
-                         console.error("Failed to initialize Gemini Service:", error);
-                         alert("Failed to initialize Gemini Service. Check the console for details.");
-                    }
+                    setGeminiService(new GeminiService(apiKey));
                 }
             }, [apiKey]);
 
             const handleGoogleLogin = () => {
+                // Simulate Google OAuth flow with a proper redirect
                 const mockUser = {
                     id: 'user123',
                     name: 'John Doe',
@@ -91,8 +87,10 @@
                     picture: 'https://via.placeholder.com/150'
                 };
                 
+                // Show loading state
                 alert('🔐 Redirecting to Google OAuth...\n\n(In demo mode, this simulates the OAuth flow)');
                 
+                // Simulate OAuth redirect delay
                 setTimeout(() => {
                     setIsAuthenticated(true);
                     setUserData(mockUser);
@@ -122,7 +120,6 @@
                 setUserData(null);
                 setCurrentView('login');
                 setGeminiResponse(null);
-                setApiKey('');
                 
                 localStorage.removeItem('synapse_auth');
                 localStorage.removeItem('synapse_user_data');
@@ -130,63 +127,24 @@
             };
 
             // Send data to Gemini API
-            // MODIFIED sendToGemini function for demo purposes
             const sendToGemini = async () => {
-                if (!apiKey) {
-                    alert('Please enter an API key to simulate the request.');
+                if (!geminiService || !userData?.initialAssessment) {
+                    alert('Please complete the initial assessment and enter your Gemini API key first');
                     return;
                 }
 
                 setIsSendingToGemini(true);
-                setGeminiResponse(null); // Clear previous response
-
-                // This is the fake data that mimics a real AI response
-                const mockApiResponse = {
-                  "timetable": [
-                    {
-                      "time": "9:00 AM - 9:30 AM",
-                      "activity": "Morning Review & Planning",
-                      "reason": "Based on your 'Standard Riser' profile, this eases you into the day."
-                    },
-                    {
-                      "time": "9:30 AM - 11:30 AM",
-                      "activity": "Deep Work on: Your Priority Task",
-                      "reason": "Scheduled during your peak 'Mid-Morning Warrior' energy window for maximum focus."
-                    },
-                    {
-                      "time": "11:30 AM - 11:45 AM",
-                      "activity": "Movement Break",
-                      "reason": "Your preference for movement breaks will help reset your focus before the next session."
-                    },
-                    {
-                      "time": "11:45 AM - 1:00 PM",
-                      "activity": "Handle Emails & Communications",
-                      "reason": "Lower energy task scheduled before lunch, matching your standard lunch time."
-                    },
-                    {
-                      "time": "1:00 PM - 2:00 PM",
-                      "activity": "Lunch Break",
-                      "reason": "Aligned with your 'Standard Luncher' habit to maintain energy levels."
-                    },
-                    {
-                      "time": "2:00 PM - 3:30 PM",
-                      "activity": "Collaborative Work or Meetings",
-                      "reason": "Post-lunch is good for social tasks as per your profile."
-                    },
-                    {
-                      "time": "3:30 PM - 4:00 PM",
-                      "activity": "Afternoon Recharge (Walk/Solitude)",
-                      "reason": "A final break to overcome the afternoon slump, as you prefer solitude to reset."
-                    }
-                  ]
-                };
-
-                // Simulate a 2-second network delay
-                setTimeout(() => {
-                    console.log('Simulating Gemini API Response:', mockApiResponse);
-                    setGeminiResponse(mockApiResponse);
+                try {
+                    const mcqData = formatAssessmentForGemini(userData.initialAssessment);
+                    const response = await geminiService.sendMCQData(mcqData.answers, mcqData.questions);
+                    setGeminiResponse(response);
+                    console.log('Gemini API Response:', response);
+                } catch (error) {
+                    console.error('Failed to send data to Gemini:', error);
+                    alert('Failed to send data to Gemini. Please check your API key and try again.');
+                } finally {
                     setIsSendingToGemini(false);
-                }, 2000);
+                }
             };
 
             // Test Gemini API connection
@@ -207,6 +165,25 @@
                     console.error('Connection test failed:', error);
                     alert('❌ Connection test failed. Please check your API key.');
                 }
+            };
+
+            // Format assessment data for Gemini
+            const formatAssessmentForGemini = (assessmentData) => {
+                const questions = [];
+                const answers = {};
+                
+                Object.entries(assessmentData).forEach(([key, value], index) => {
+                    questions.push({
+                        id: index + 1,
+                        question: `Assessment Question ${index + 1}: ${key}`,
+                        options: [
+                            { id: value, text: value }
+                        ]
+                    });
+                    answers[index + 1] = value;
+                });
+
+                return { questions, answers };
             };
 
             const handleDailyComplete = (data) => {
@@ -239,27 +216,6 @@
                         return <InitialAssessment onComplete={handleInitialComplete} />;
                 }
             };
-            
-            // Timetable rendering component
-            const TimetableDisplay = ({ timetable }) => {
-                if (!timetable || !Array.isArray(timetable)) {
-                    return <p>Waiting for AI analysis to generate your timetable...</p>;
-                }
-
-                return (
-                    <div className="timetable-container">
-                        {timetable.map((item, index) => (
-                            <div key={index} className="timetable-item">
-                                <div className="timetable-time">{item.time}</div>
-                                <div className="timetable-details">
-                                    <div className="timetable-activity">{item.activity}</div>
-                                    <div className="timetable-reason">{item.reason}</div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                );
-            };
 
             return (
                 <div className="app">
@@ -281,7 +237,7 @@
                     {isAuthenticated && currentView === 'dashboard' && userData?.initialAssessment && (
                         <div className="gemini-integration">
                             <div className="gemini-section">
-                                <h3>🤖 Your AI-Generated Timetable</h3>
+                                <h3>🤖 AI Analysis with Gemini</h3>
                                 
                                 <div className="gemini-controls">
                                     <input
@@ -306,19 +262,15 @@
                                             disabled={!geminiService || isSendingToGemini}
                                             className="send-btn"
                                         >
-                                            {isSendingToGemini ? 'Generating...' : 'Generate My Timetable'}
+                                            {isSendingToGemini ? 'Sending...' : 'Analyze with AI'}
                                         </button>
                                     </div>
                                 </div>
                                 
-                                {isSendingToGemini && (
-                                     <div className="loading-spinner"></div>
-                                )}
-
-                                {geminiResponse && geminiResponse.timetable && (
+                                {geminiResponse && (
                                     <div className="gemini-response">
-                                        <h4>Here's your optimized schedule for today:</h4>
-                                        <TimetableDisplay timetable={geminiResponse.timetable} />
+                                        <h4>AI Analysis Results:</h4>
+                                        <pre>{JSON.stringify(geminiResponse, null, 2)}</pre>
                                     </div>
                                 )}
                             </div>
@@ -327,10 +279,7 @@
                 </div>
             );
         };
-        
-        // --- All your other components (InitialAssessment, DailyCheckin, Dashboard, etc.) go here ---
-        // (Copy them from your original file)
-        
+
         // InitialAssessment Component (Full 8 sections)
         const InitialAssessment = ({ onComplete }) => {
             const [currentSection, setCurrentSection] = useState(0);
@@ -1074,7 +1023,7 @@
 
                         <div className="button-container">
                             <button className="button" onClick={onStartDaily}>
-                                {latestCheckin ? 'Update Today\'s Check-in' : 'Start Daily Check-in'}
+                                {latestCheckin ? 'Daily Check-in' : 'Start Daily Check-in'}
                             </button>
                             <button className="button secondary" onClick={onRestart}>
                                 Retake Assessment
@@ -1084,7 +1033,6 @@
                 </div>
             );
         };
-        
 
         ReactDOM.render(<IntegratedApp />, document.getElementById('root'));
         

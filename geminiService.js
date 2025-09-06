@@ -1,136 +1,128 @@
+// geminiService.js
 
-// Gemini API Service for sending MCQ data
 class GeminiService {
-  constructor(apiKey) {
-    this.apiKey = apiKey;
-    this.baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
-  }
-
-  // Send MCQ answers to Gemini API
-  async sendMCQData(answers, questions) {
-    try {
-      // Prepare the data for Gemini
-      const mcqData = this.formatMCQData(answers, questions);
-      
-      console.log('Sending data to Gemini:', mcqData);
-      console.log('API Key (first 10 chars):', this.apiKey.substring(0, 10) + '...');
-      
-      const response = await fetch(`${this.baseUrl}?key=${this.apiKey}`, {
-        method: 'POST',
-        mode: 'cors',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: mcqData
-            }]
-          }],
-          generationConfig: {
-            temperature: 0.7,
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 1024,
-          }
-        })
-      });
-
-      console.log('Response status:', response.status);
-      console.log('Response headers:', response.headers);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('API Error Response:', errorText);
-        throw new Error(`Gemini API error: ${response.status} ${response.statusText}. Details: ${errorText}`);
-      }
-
-      const result = await response.json();
-      console.log('Success! Gemini response:', result);
-      return result;
-    } catch (error) {
-      console.error('Error sending data to Gemini:', error);
-      
-      // Provide more specific error messages
-      if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        throw new Error('Network error: Unable to connect to Gemini API. This might be a CORS issue when running from file://. Try using a local server.');
-      } else if (error.message.includes('401')) {
-        throw new Error('Invalid API key. Please check your Gemini API key.');
-      } else if (error.message.includes('403')) {
-        throw new Error('API access forbidden. Please check if your API key has the correct permissions.');
-      } else if (error.message.includes('429')) {
-        throw new Error('Rate limit exceeded. Please try again later.');
-      }
-      
-      throw error;
+    constructor(apiKey) {
+        this.apiKey = apiKey;
+        // FINAL FIX: Changed model name to gemini-1.5-flash-latest
+        this.apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-latest:generateContent?key=${this.apiKey}`;
     }
-  }
 
-  // Format MCQ data for Gemini API
-  formatMCQData(answers, questions) {
-    let formattedData = "MCQ Assessment Results:\n\n";
-    
-    questions.forEach(question => {
-      const answerId = answers[question.id];
-      const selectedOption = question.options.find(opt => opt.id === answerId);
-      
-      formattedData += `Question ${question.id}: ${question.question}\n`;
-      formattedData += `Answer: ${selectedOption ? selectedOption.text : 'Not answered'}\n\n`;
-    });
+    /**
+     * Sends the assessment and daily check-in data to the Gemini API for analysis.
+     * @param {object} initialAssessment - The user's answers from the initial assessment.
+     * @param {object} dailyCheckin - The user's answers from the latest daily check-in.
+     * @returns {Promise<object>} - The parsed JSON response from the Gemini API.
+     */
+    async getAnalysis(initialAssessment, dailyCheckin) {
+        // Construct a detailed prompt for the AI
+        const prompt = this.createAnalysisPrompt(initialAssessment, dailyCheckin);
 
-    // Add summary
-    formattedData += `Summary:\n`;
-    formattedData += `Total Questions: ${questions.length}\n`;
-    formattedData += `Answered: ${Object.keys(answers).length}\n`;
-    formattedData += `Completion Rate: ${Math.round((Object.keys(answers).length / questions.length) * 100)}%\n\n`;
-    
-    formattedData += "Please analyze this data and provide insights about the user's productivity patterns and energy levels.";
-    
-    return formattedData;
-  }
+        try {
+            const response = await fetch(this.apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                }),
+            });
 
-  // Test API connection
-  async testConnection() {
-    try {
-      console.log('Testing Gemini API connection...');
-      console.log('API Key (first 10 chars):', this.apiKey.substring(0, 10) + '...');
-      
-      const response = await fetch(`${this.baseUrl}?key=${this.apiKey}`, {
-        method: 'POST',
-        mode: 'cors',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: "Hello, this is a test message to verify Gemini API connection."
-            }]
-          }]
-        })
-      });
+            if (!response.ok) {
+                const errorBody = await response.json();
+                console.error('API Error Response:', errorBody);
+                throw new Error(`API call failed with status: ${response.status}. ${errorBody.error?.message || ''}`);
+            }
 
-      console.log('Test response status:', response.status);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Test API Error Response:', errorText);
-        return false;
-      }
+            const data = await response.json();
+            
+            // Extract and parse the JSON from the model's response text
+            const responseText = data.candidates[0]?.content?.parts[0]?.text;
+            if (!responseText) {
+                throw new Error('Invalid response structure from Gemini API.');
+            }
 
-      const result = await response.json();
-      console.log('Test successful! Response:', result);
-      return true;
-    } catch (error) {
-      console.error('Gemini API connection test failed:', error);
-      return false;
+            // Clean the response text to ensure it's valid JSON
+            const cleanedJsonString = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+            
+            return JSON.parse(cleanedJsonString);
+
+        } catch (error) {
+            console.error('Error in getAnalysis:', error);
+            throw error;
+        }
     }
-  }
-}
 
-// Export for use in other files
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = GeminiService;
-} else {
-  window.GeminiService = GeminiService;
+    /**
+     * Creates a structured prompt for the Gemini API.
+     * @param {object} assessment - The user's initial assessment data.
+     * @param {object} checkin - The user's daily check-in data.
+     * @returns {string} - A detailed prompt for the AI.
+     */
+    createAnalysisPrompt(assessment, checkin) {
+        return `
+            You are "Synapse AI," an expert productivity and wellness coach. Your goal is to analyze user data to generate a personalized, optimized daily timetable.
+
+            Analyze the following user data:
+
+            **1. Initial Assessment (User's Core Profile):**
+            \`\`\`json
+            ${JSON.stringify(assessment, null, 2)}
+            \`\`\`
+
+            **2. Today's Check-in (User's Current State):**
+            \`\`\`json
+            ${JSON.stringify(checkin, null, 2)}
+            \`\`\`
+
+            **Your Task:**
+            Based on BOTH the initial assessment and today's check-in, generate a personalized timetable for today. 
+            The timetable should be structured into logical blocks (e.g., Morning, Mid-Day, Afternoon, Evening).
+
+            **Output Requirements:**
+            - **Return a single, valid JSON object.** Do NOT include any text before or after the JSON object.
+            - The JSON object must have a root key named "timetable".
+            - The "timetable" value should be an array of objects, where each object represents a time block and has the following keys: "time" (string, e.g., "9:00 AM - 11:00 AM"), "activity" (string, e.g., "Deep Work on Priority Task"), and "reason" (string, a brief explanation of why this activity is scheduled at this time based on user data).
+            - Include at least 5-7 time blocks, covering the main parts of the user's day.
+            - Incorporate the user's "most_important_task" from the check-in data into a "Deep Work" block.
+            - Schedule breaks and meals according to the user's preferences in the assessment.
+            - Schedule the most demanding tasks during the user's self-reported peak productivity time ("alert_time" from assessment).
+
+            Example of the required JSON output format:
+            {
+              "timetable": [
+                {
+                  "time": "9:00 AM - 9:30 AM",
+                  "activity": "Morning Review & Planning",
+                  "reason": "Ease into the day and align with your standard start time preference."
+                },
+                {
+                  "time": "9:30 AM - 11:30 AM",
+                  "activity": "Deep Work on: [User's most important task]",
+                  "reason": "Scheduled during your peak 'Mid-Morning Warrior' energy window for maximum focus."
+                }
+              ]
+            }
+        `;
+    }
+
+    /**
+     * A simple test to check if the API key is valid.
+     * @returns {Promise<boolean>} - True if the connection is successful, false otherwise.
+     */
+    async testConnection() {
+        try {
+            const response = await fetch(this.apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: "Hello" }] }],
+                }),
+            });
+            return response.ok;
+        } catch (error) {
+            console.error('API connection test failed:', error);
+            return false;
+        }
+    }
 }
