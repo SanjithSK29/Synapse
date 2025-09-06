@@ -44,7 +44,7 @@ function App() {
   return (
     <div className="app">
       <div className="header">
-        <h1 className="logo">SYNAPSE</h1>
+        <h1 className="logo">Synapse</h1>
         <p className="tagline">Your mind, optimized</p>
       </div>
       {renderCurrentView()}
