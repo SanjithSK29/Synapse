@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import GeminiService from './geminiService';
 
 const MCQForm = () => {
   // Sample MCQ data - replace with your actual questions
@@ -42,10 +43,23 @@ const MCQForm = () => {
     return savedAnswers ? JSON.parse(savedAnswers) : {};
   });
 
+  // Gemini API state
+  const [geminiService, setGeminiService] = useState(null);
+  const [isSendingToGemini, setIsSendingToGemini] = useState(false);
+  const [geminiResponse, setGeminiResponse] = useState(null);
+  const [apiKey, setApiKey] = useState('');
+
   // Save to localStorage whenever answers change
   useEffect(() => {
     localStorage.setItem('mcqAnswers', JSON.stringify(answers));
   }, [answers]);
+
+  // Initialize Gemini service when API key is provided
+  useEffect(() => {
+    if (apiKey) {
+      setGeminiService(new GeminiService(apiKey));
+    }
+  }, [apiKey]);
 
   // Handle answer selection
   const handleAnswerChange = (questionId, answerId) => {
@@ -59,6 +73,47 @@ const MCQForm = () => {
   const clearAnswers = () => {
     setAnswers({});
     localStorage.removeItem('mcqAnswers');
+    setGeminiResponse(null);
+  };
+
+  // Send data to Gemini API
+  const sendToGemini = async () => {
+    if (!geminiService) {
+      alert('Please enter your Gemini API key first');
+      return;
+    }
+
+    setIsSendingToGemini(true);
+    try {
+      const response = await geminiService.sendMCQData(answers, questions);
+      setGeminiResponse(response);
+      console.log('Gemini API Response:', response);
+    } catch (error) {
+      console.error('Failed to send data to Gemini:', error);
+      alert('Failed to send data to Gemini. Please check your API key and try again.');
+    } finally {
+      setIsSendingToGemini(false);
+    }
+  };
+
+  // Test Gemini API connection
+  const testGeminiConnection = async () => {
+    if (!geminiService) {
+      alert('Please enter your Gemini API key first');
+      return;
+    }
+
+    try {
+      const isConnected = await geminiService.testConnection();
+      if (isConnected) {
+        alert('✅ Gemini API connection successful!');
+      } else {
+        alert('❌ Gemini API connection failed. Please check your API key.');
+      }
+    } catch (error) {
+      console.error('Connection test failed:', error);
+      alert('❌ Connection test failed. Please check your API key.');
+    }
   };
 
   // Get completion percentage
@@ -121,6 +176,55 @@ const MCQForm = () => {
           </div>
         ))}
       </form>
+
+      {/* Gemini API Integration Section */}
+      <div className="mt-8 p-4 bg-blue-50 rounded-lg border border-blue-200">
+        <h3 className="text-lg font-semibold text-blue-800 mb-4">Gemini AI Integration</h3>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Gemini API Key
+            </label>
+            <input
+              type="password"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="Enter your Gemini API key"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          
+          <div className="flex space-x-3">
+            <button
+              type="button"
+              onClick={testGeminiConnection}
+              disabled={!apiKey}
+              className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+            >
+              Test Connection
+            </button>
+            
+            <button
+              type="button"
+              onClick={sendToGemini}
+              disabled={!geminiService || isSendingToGemini || Object.keys(answers).length === 0}
+              className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+            >
+              {isSendingToGemini ? 'Sending...' : 'Send to Gemini AI'}
+            </button>
+          </div>
+          
+          {geminiResponse && (
+            <div className="mt-4 p-3 bg-green-100 border border-green-300 rounded-lg">
+              <h4 className="font-semibold text-green-800 mb-2">Gemini AI Response:</h4>
+              <pre className="text-sm text-green-700 whitespace-pre-wrap">
+                {JSON.stringify(geminiResponse, null, 2)}
+              </pre>
+            </div>
+          )}
+        </div>
+      </div>
 
       <div className="mt-8 flex justify-between items-center">
         <button
